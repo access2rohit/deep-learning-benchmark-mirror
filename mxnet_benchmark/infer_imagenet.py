@@ -23,7 +23,7 @@ parser.add_argument('--dataset-size', type=int, default=32,
                     help='training batch size per device (CPU/GPU).')
 parser.add_argument('--dtype', type=str, default='float32',
                     help='data type for training. default is float32')
-parser.add_argument('--num_gpus', type=int, default=0,
+parser.add_argument('--num_gpus', type=str, default=0,
                     help='number of gpus to use.')
 parser.add_argument('-j', '--num-data-workers', dest='num_workers', default=4, type=int,
                     help='number of preprocessing workers')
@@ -77,8 +77,9 @@ logging.info(opt)
 batch_size = opt.batch_size
 classes = 1000
 
-num_gpus = opt.num_gpus
-context = [mx.cpu()]
+num_gpus = len(opt.num_gpus.split(','))
+batch_size *= max(1, num_gpus)
+context = mx.gpu(0)
 num_workers = opt.num_workers
 
 kv = mx.kv.create(opt.kvstore)
@@ -122,7 +123,7 @@ def get_data_loader(data_dir, batch_size, num_workers):
         return data, label
     if opt.mode == 'symbolic':
         val_data = mx.io.NDArrayIter(
-            mx.nd.random.normal(shape=(opt.dataset_size, 3, 224, 224)),
+            mx.nd.random.normal(shape=(opt.dataset_size, 3, 224, 224), ctx=context),
             label=mx.nd.array(range(opt.dataset_size)),
             batch_size=batch_size,
         )
@@ -153,10 +154,8 @@ def infer(ctx):
         data, label = batch_fn(batch, ctx)
         outputs = [net(X.astype(opt.dtype, copy=False)) for X in data]
         acc_top1.update(label, outputs)
-        #acc_top5.update(label, outputs)
         logging.info('Batch [%d]'%(i))
         logging.info('Top 1 accuracy: %d'%(acc_top1.get()[1]))
-        #logging.info('Top 5 accuracy: %d'%(acc_top5.get()[1]))
         time_taken = time.time() - btic
         if i<20:
             logging.info('warmup_throughput: %d samples/sec warmup_time %f'%(
@@ -178,7 +177,7 @@ def main():
         softmax = mx.sym.SoftmaxOutput(out, name='softmax')
         mod = mx.mod.Module(softmax, context=context)
         net.hybridize()
-        net(mx.nd.random_normal(shape=(1,3,256,256)))
+        net(mx.nd.random_normal(shape=(1,3,256,256), ctx=context))
         net.export('preresnet50',0)
         sym, arg_params, aux_params = mx.model.load_checkpoint('preresnet50',0)
         mod.bind(data_shapes=val_data.provide_data, label_shapes=val_data.provide_label)
