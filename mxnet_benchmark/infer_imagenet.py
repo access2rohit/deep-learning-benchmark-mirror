@@ -79,7 +79,7 @@ classes = 1000
 
 num_gpus = len(opt.num_gpus.split(','))
 batch_size *= max(1, num_gpus)
-context = mx.gpu(0)
+context = [mx.gpu(int(i)) for i in opt.num_gpus.split(',')] if num_gpus > 0 else [mx.cpu()]
 num_workers = opt.num_workers
 
 kv = mx.kv.create(opt.kvstore)
@@ -177,7 +177,10 @@ def main():
         softmax = mx.sym.SoftmaxOutput(out, name='softmax')
         mod = mx.mod.Module(softmax, context=context)
         net.hybridize()
-        net(mx.nd.random_normal(shape=(1,3,256,256), ctx=context))
+        if opt.dtype == 'float16':
+            net(mx.nd.random_normal(shape=(1,3,256,256), ctx=context[0], dtype=np.float16))
+        else:
+            net(mx.nd.random_normal(shape=(1,3,256,256), ctx=context[0]))
         net.export('preresnet50',0)
         sym, arg_params, aux_params = mx.model.load_checkpoint('preresnet50',0)
         mod.bind(data_shapes=val_data.provide_data, label_shapes=val_data.provide_label)
