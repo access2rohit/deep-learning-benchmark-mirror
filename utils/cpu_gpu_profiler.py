@@ -11,7 +11,7 @@ from .errors import CommandExecutionError
 
 # redirect the GPU memory usage to a file
 #GPU_MONITOR = "nvidia-smi --query-gpu=index,memory.used --format=csv -lms 500 -f output.csv"
-GPU_MONITOR = "nvidia-smi --query-gpu=index,memory.used --format=csv -l 50 -f output.csv"
+GPU_MONITOR = "nvidia-smi --query-gpu=index,memory.used --format=csv -l 30 -f output.csv"
 
 def gpu_memory_usage_extract(file_name, ret_dict, num_gpus):
     """Extract GPU usage from the nvidia-smi output file"""
